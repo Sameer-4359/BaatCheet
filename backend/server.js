@@ -2,7 +2,7 @@ const express = require("express");
 const dotenv = require("dotenv");
 const connectDB = require("./config/db")
 const userRoutes= require("./routes/userRoutes")
-require("./config/passport")
+const passport = require("./config/passport")
 const authRoutes = require("./routes/authRoutes");
 
 

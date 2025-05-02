@@ -26,8 +26,23 @@ export const WebRTCProvider: React.FC<{
 }> = ({ children, userId, userEmail, userName }) => {
   const webRTC = useWebRTC(userId, userEmail, userName);
 
+  // Explicitly define the context value to match WebRTCContextProps
+  const contextValue: WebRTCContextProps = {
+    callState: webRTC.callState,
+    localStream: webRTC.localStream,
+    remoteStream: webRTC.remoteStream,
+    startCall: webRTC.startCall,
+    acceptCall: webRTC.acceptCall,
+    rejectCall: webRTC.rejectCall,
+    endCall: webRTC.endCall,
+    toggleMute: webRTC.toggleMute,
+    toggleCamera: webRTC.toggleCamera,
+    switchCamera: webRTC.switchCamera,
+    sendMessage: webRTC.sendMessage,
+  };
+
   return (
-    <WebRTCContext.Provider value={webRTC}>
+    <WebRTCContext.Provider value={contextValue}>
       {children}
     </WebRTCContext.Provider>
   );

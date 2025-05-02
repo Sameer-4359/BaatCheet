@@ -47,8 +47,8 @@ export const useWebRTC = (userId: string, userEmail: string, userName: string) =
   const peerConnection = useRef<RTCPeerConnection | null>(null);
   
   // Stream refs
-  const localStream = useRef<any>(null);
-  const remoteStream = useRef<any>(null);
+  const localStreamRef = useRef<any>(null);
+  const remoteStreamRef = useRef<any>(null);
   
   // Call state
   const [callState, setCallState] = useState<CallState>({
@@ -62,6 +62,138 @@ export const useWebRTC = (userId: string, userEmail: string, userName: string) =
     callType: 'video',
     roomId: '',
   });
+
+  // Get user media (camera, microphone)
+  const getUserMedia = async (callType: CallType) => {
+    try {
+      const constraints = {
+        audio: true,
+        video: callType === 'video' ? {
+          width: { ideal: 1280 },
+          height: { ideal: 720 },
+          facingMode: 'user',
+        } : false,
+      };
+
+      const stream = await mediaDevices.getUserMedia(constraints);
+      localStreamRef.current = stream;
+      
+      // Configure audio session
+      InCallManager.start({ media: callType === 'video' ? 'video' : 'audio' });
+      InCallManager.setKeepScreenOn(true);
+      InCallManager.setForceSpeakerphoneOn(callType === 'video');
+
+      return stream;
+    } catch (error) {
+      console.error('Error accessing media devices:', error);
+      throw error;
+    }
+  };
+
+  // End active call
+  const endCall = () => {
+    // Stop audio session
+    InCallManager.stop();
+    InCallManager.stopRingback();
+    InCallManager.stopRingtone();
+    
+    // Release media resources
+    if (localStreamRef.current) {
+      localStreamRef.current.getTracks().forEach((track: any) => track.stop());
+      localStreamRef.current = null;
+    }
+    
+    // Close peer connection
+    if (peerConnection.current) {
+      peerConnection.current.close();
+      peerConnection.current = null;
+    }
+    
+    // Notify other user
+    if (socket.current && callState.roomId) {
+      socket.current.emit('call-ended', {
+        roomId: callState.roomId,
+      });
+    }
+    
+    // Reset call state
+    setCallState({
+      isIncomingCall: false,
+      isOutgoingCall: false,
+      isCallActive: false,
+      isMuted: false,
+      isCameraOn: true,
+      remoteName: '',
+      remoteEmail: '',
+      callType: 'video',
+      roomId: '',
+    });
+  };
+
+  // Handle incoming offer
+  const handleIncomingOffer = async (data: { 
+    from: string, 
+    offer: RTCSessionDescription, 
+    roomId: string 
+  }) => {
+    try {
+      if (!peerConnection.current) {
+        initPeerConnection();
+      }
+      
+      await peerConnection.current?.setRemoteDescription(
+        new RTCSessionDescription(data.offer)
+      );
+
+      const answer = await peerConnection.current?.createAnswer();
+      await peerConnection.current?.setLocalDescription(answer);
+
+      if (socket.current && answer) {
+        socket.current.emit('answer', {
+          roomId: data.roomId,
+          from: userId,
+          answer,
+        });
+      }
+    } catch (error) {
+      console.error('Error handling offer:', error);
+    }
+  };
+
+  // Initialize WebRTC peer connection
+  const initPeerConnection = () => {
+    peerConnection.current = new RTCPeerConnection(configuration);
+
+    // Add local stream to peer connection
+    if (localStreamRef.current) {
+      localStreamRef.current.getTracks().forEach((track: any) => {
+        peerConnection.current?.addTrack(track, localStreamRef.current);
+      });
+    }
+
+    // Handle ICE candidates
+    peerConnection.current.addEventListener('icecandidate', (event) => {
+      if (event.candidate && socket.current) {
+        socket.current.emit('ice-candidate', {
+          roomId: callState.roomId,
+          from: userId,
+          candidate: event.candidate,
+        });
+      }
+    });
+
+    // Handle connection state changes
+    peerConnection.current.addEventListener('connectionstatechange', () => {
+      console.log('Connection state:', peerConnection.current?.connectionState);
+    });
+
+    // Handle incoming tracks (remote stream)
+    peerConnection.current.addEventListener('track', (event) => {
+      remoteStreamRef.current = event.streams[0];
+      // Notify UI that remote stream is available
+      setCallState((prev) => ({ ...prev, isCallActive: true }));
+    });
+  };
 
   // Handle socket initialization
   useEffect(() => {
@@ -161,68 +293,6 @@ export const useWebRTC = (userId: string, userEmail: string, userName: string) =
     });
   };
 
-  // Initialize WebRTC peer connection
-  const initPeerConnection = () => {
-    peerConnection.current = new RTCPeerConnection(configuration);
-
-    // Add local stream to peer connection
-    if (localStream.current) {
-      localStream.current.getTracks().forEach((track: any) => {
-        peerConnection.current?.addTrack(track, localStream.current);
-      });
-    }
-
-    // Handle ICE candidates
-    peerConnection.current.addEventListener('icecandidate', (event) => {
-      if (event.candidate && socket.current) {
-        socket.current.emit('ice-candidate', {
-          roomId: callState.roomId,
-          from: userId,
-          candidate: event.candidate,
-        });
-      }
-    });
-
-    // Handle connection state changes
-    peerConnection.current.addEventListener('connectionstatechange', () => {
-      console.log('Connection state:', peerConnection.current?.connectionState);
-    });
-
-    // Handle incoming tracks (remote stream)
-    peerConnection.current.addEventListener('track', (event) => {
-      remoteStream.current = event.streams[0];
-      // Notify UI that remote stream is available
-      setCallState((prev) => ({ ...prev, isCallActive: true }));
-      }
-    );
-
-  // Get user media (camera, microphone)
-  const getUserMedia = async (callType: CallType) => {
-    try {
-      const constraints = {
-        audio: true,
-        video: callType === 'video' ? {
-          width: { ideal: 1280 },
-          height: { ideal: 720 },
-          facingMode: 'user',
-        } : false,
-      };
-
-      const stream = await mediaDevices.getUserMedia(constraints);
-      localStream.current = stream;
-      
-      // Configure audio session
-      InCallManager.start({ media: callType === 'video' ? 'video' : 'audio' });
-      InCallManager.setKeepScreenOn(true);
-      InCallManager.setForceSpeakerphoneOn(callType === 'video');
-
-      return stream;
-    } catch (error) {
-      console.error('Error accessing media devices:', error);
-      throw error;
-    }
-  };
-
   // Create and send offer
   const createOffer = async () => {
     try {
@@ -238,32 +308,6 @@ export const useWebRTC = (userId: string, userEmail: string, userName: string) =
       }
     } catch (error) {
       console.error('Error creating offer:', error);
-    }
-  };
-
-  // Handle incoming offer
-  const handleIncomingOffer = async (data: { 
-    from: string, 
-    offer: RTCSessionDescription, 
-    roomId: string 
-  }) => {
-    try {
-      await peerConnection.current?.setRemoteDescription(
-        new RTCSessionDescription(data.offer)
-      );
-
-      const answer = await peerConnection.current?.createAnswer();
-      await peerConnection.current?.setLocalDescription(answer);
-
-      if (socket.current && answer) {
-        socket.current.emit('answer', {
-          roomId: data.roomId,
-          from: userId,
-          answer,
-        });
-      }
-    } catch (error) {
-      console.error('Error handling offer:', error);
     }
   };
 
@@ -302,6 +346,11 @@ export const useWebRTC = (userId: string, userEmail: string, userName: string) =
           roomId,
         });
       }
+
+      // Create and send offer after joining room
+      socket.current?.once('room-joined', () => {
+        createOffer();
+      });
 
       // Start ringtone for outgoing call
       InCallManager.startRingback('ringback_default');
@@ -364,50 +413,10 @@ export const useWebRTC = (userId: string, userEmail: string, userName: string) =
     });
   };
 
-  // End active call
-  const endCall = () => {
-    // Stop audio session
-    InCallManager.stop();
-    InCallManager.stopRingback();
-    InCallManager.stopRingtone();
-    
-    // Release media resources
-    if (localStream.current) {
-      localStream.current.getTracks().forEach((track: any) => track.stop());
-      localStream.current = null;
-    }
-    
-    // Close peer connection
-    if (peerConnection.current) {
-      peerConnection.current.close();
-      peerConnection.current = null;
-    }
-    
-    // Notify other user
-    if (socket.current && callState.roomId) {
-      socket.current.emit('call-ended', {
-        roomId: callState.roomId,
-      });
-    }
-    
-    // Reset call state
-    setCallState({
-      isIncomingCall: false,
-      isOutgoingCall: false,
-      isCallActive: false,
-      isMuted: false,
-      isCameraOn: true,
-      remoteName: '',
-      remoteEmail: '',
-      callType: 'video',
-      roomId: '',
-    });
-  };
-
   // Toggle mute
   const toggleMute = () => {
-    if (localStream.current) {
-      const audioTracks = localStream.current.getAudioTracks();
+    if (localStreamRef.current) {
+      const audioTracks = localStreamRef.current.getAudioTracks();
       audioTracks.forEach((track: any) => {
         track.enabled = !track.enabled;
       });
@@ -421,8 +430,8 @@ export const useWebRTC = (userId: string, userEmail: string, userName: string) =
 
   // Toggle camera
   const toggleCamera = () => {
-    if (localStream.current && callState.callType === 'video') {
-      const videoTracks = localStream.current.getVideoTracks();
+    if (localStreamRef.current && callState.callType === 'video') {
+      const videoTracks = localStreamRef.current.getVideoTracks();
       videoTracks.forEach((track: any) => {
         track.enabled = !track.enabled;
       });
@@ -436,8 +445,8 @@ export const useWebRTC = (userId: string, userEmail: string, userName: string) =
 
   // Switch camera (front/back)
   const switchCamera = () => {
-    if (localStream.current && callState.callType === 'video') {
-      const videoTrack = localStream.current.getVideoTracks()[0];
+    if (localStreamRef.current && callState.callType === 'video') {
+      const videoTrack = localStreamRef.current.getVideoTracks()[0];
       videoTrack._switchCamera();
     }
   };
@@ -456,8 +465,8 @@ export const useWebRTC = (userId: string, userEmail: string, userName: string) =
 
   return {
     callState,
-    localStream: localStream.current,
-    remoteStream: remoteStream.current,
+    localStream: localStreamRef.current,
+    remoteStream: remoteStreamRef.current,
     startCall,
     acceptCall,
     rejectCall,
@@ -467,12 +476,4 @@ export const useWebRTC = (userId: string, userEmail: string, userName: string) =
     switchCamera,
     sendMessage,
   };
-};
-
-function handleIncomingOffer(data: { from: string; offer: RTCSessionDescription; roomId: string; }) {
-    throw new Error('Function not implemented.');
-  }
-  function endCall() {
-    throw new Error('Function not implemented.');
-  }
 };

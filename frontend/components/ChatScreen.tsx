@@ -12,7 +12,7 @@ import {
   SafeAreaView,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useWebRTCContext } from '../context/WebRTCContext';
+import { useWebRTCContext } from '../app/_context/WebRTCContext';
 
 interface Message {
   id: string;

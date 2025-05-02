@@ -105,7 +105,7 @@ export const useWebRTC = (userId: string, userEmail: string, userName: string) =
         roomId: data.roomId,
       });
       // Play ringtone
-      InCallManager.startRingtone('ringtone_default');
+      InCallManager.startRingtone('ringtone_default', 1, 'default', 1);
     });
 
     socket.current.on('offer', async (data: { 
@@ -173,7 +173,7 @@ export const useWebRTC = (userId: string, userEmail: string, userName: string) =
     }
 
     // Handle ICE candidates
-    peerConnection.current.onicecandidate = (event) => {
+    peerConnection.current.addEventListener('icecandidate', (event) => {
       if (event.candidate && socket.current) {
         socket.current.emit('ice-candidate', {
           roomId: callState.roomId,
@@ -181,20 +181,20 @@ export const useWebRTC = (userId: string, userEmail: string, userName: string) =
           candidate: event.candidate,
         });
       }
-    };
+    });
 
     // Handle connection state changes
-    peerConnection.current.onconnectionstatechange = () => {
+    peerConnection.current.addEventListener('connectionstatechange', () => {
       console.log('Connection state:', peerConnection.current?.connectionState);
-    };
+    });
 
     // Handle incoming tracks (remote stream)
-    peerConnection.current.ontrack = (event) => {
+    peerConnection.current.addEventListener('track', (event) => {
       remoteStream.current = event.streams[0];
       // Notify UI that remote stream is available
       setCallState((prev) => ({ ...prev, isCallActive: true }));
-    };
-  };
+      }
+    );
 
   // Get user media (camera, microphone)
   const getUserMedia = async (callType: CallType) => {
@@ -226,7 +226,7 @@ export const useWebRTC = (userId: string, userEmail: string, userName: string) =
   // Create and send offer
   const createOffer = async () => {
     try {
-      const offer = await peerConnection.current?.createOffer();
+      const offer = await peerConnection.current?.createOffer({});
       await peerConnection.current?.setLocalDescription(offer);
 
       if (socket.current && offer) {
@@ -304,7 +304,7 @@ export const useWebRTC = (userId: string, userEmail: string, userName: string) =
       }
 
       // Start ringtone for outgoing call
-      InCallManager.startRingback();
+      InCallManager.startRingback('ringback_default');
     } catch (error) {
       console.error('Error starting call:', error);
       endCall();
@@ -467,4 +467,12 @@ export const useWebRTC = (userId: string, userEmail: string, userName: string) =
     switchCamera,
     sendMessage,
   };
+};
+
+function handleIncomingOffer(data: { from: string; offer: RTCSessionDescription; roomId: string; }) {
+    throw new Error('Function not implemented.');
+  }
+  function endCall() {
+    throw new Error('Function not implemented.');
+  }
 };

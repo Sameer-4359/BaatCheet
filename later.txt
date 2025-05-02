@@ -1,0 +1,1 @@
+Add better coloring + styling + error message displaying using toast in both register + login screen

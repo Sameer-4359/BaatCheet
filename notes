@@ -1,0 +1,31 @@
+setup a new user by the name of { "name": "BananaNigga", "email":"Banana@Banana.com", "password":"Banana11$1", "confirmPassword":"Banana11$1" }
+saad@arfan.com SaadArfan1$
+
+NOTE THAT NATIVEWIND stuff ONLY APPLIES EACH TIME YOU RESET frontend and run 'npx expo start --clear'
+
+login and registerUser both successful!
+
+Yes, WebRTC is peer-to-peer, but:
+👉 Only the actual media (audio, video, data) is peer-to-peer.
+
+However, the peers (users) need help to find and connect to each other.
+That’s where the backend comes in.
+
+Backend only handles signalling ( Express + websockets ) Users exchange connection info to find and talk to each other
+Signaling = the process of setting up a call between two peers.
+To do that, peers must exchange:
+- SDP (Session Description Protocol): Contains information about audio/video codecs, IP address, ports, etc.
+- ICE (Interactive Connectivity Establishment) Candidates: Contains network info to help each peer connect — like “I’m available on this local IP/port”.
+WebRTC does not define how signaling should happen — you have to build that part.
+Thus the backend: 
+1. Creates WebSocket connections (a way to send real-time messages between frontend and server)
+2. Receives signaling messages from one user (like an offer or ICE candidate)
+3. Sends them to the target user
+messenger only during the setup.
+Once the connection is established, the backend steps out, and the two clients talk directly.
+
+
+
+Frontend handles Media/Data Transfer (actual call/chat), handled by WebRTC (in browser/mobile) Media is streamed directly peer-to-peer (P2P)
+
+NOTE: expo router uses file-based routing

@@ -5,9 +5,12 @@ const validator = require("validator");
 
 const registerUser = async(req,res)=> {
     try{
+        console.log("POST api/users/signup")
+        console.log(req.body)
         let { name, email, password, confirmPassword } = req.body;
         name = name.trim(); //to avoid accidental spaces
         email = email.trim().toLowerCase(); //emails are not case sensitive
+        
 
         if (!validator.isEmail(email)) {
             return res.status(400).json({ message: "Invalid email format" });
@@ -20,7 +23,7 @@ const registerUser = async(req,res)=> {
 
         //user must enter a strong password
         if (!validator.isStrongPassword(password, { minLength: 8, minNumbers: 1, minUppercase: 1 })) {
-            return res.status(400).json({ message: "Password must be at least 8 characters long, include a number and an uppercase letter" });
+            return res.status(400).json({ message: "Password must be at least 8 characters long, include a number, special character, and an uppercase letter" });
           }
 
 
@@ -41,7 +44,7 @@ const registerUser = async(req,res)=> {
     });
 
     if(newUser){
-        return res.status(201).json({message:"User Registered sucessfully."})
+        return res.status(201).json({message:"User Registered sucessfully.", success:1})
     }
     else{
         return res.status(400).json({message:"Invalid user data"})
@@ -53,12 +56,12 @@ const registerUser = async(req,res)=> {
     }
 };
 
-
-
 const login = async (req,res) => {
 
     try{
+        console.log("POST api/users/login")
         let {email,password}=req.body
+
         email=email.trim().toLowerCase()
 
         const user = await User.findOne({email})

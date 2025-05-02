@@ -5,13 +5,13 @@ const jwt = require("jsonwebtoken");
 const router = express.Router();
 
 // Route to initiate Google OAuth login
-router.get(
+router.get( // /google route
   "/google",
   passport.authenticate("google", { scope: ["profile", "email"] })
 );
 
 // Callback route after Google login
-router.get(
+router.get( // /google/callback route
   "/google/callback",
   passport.authenticate("google", { session: false }),
   (req, res) => {

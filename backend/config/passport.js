@@ -26,11 +26,11 @@ passport.use(
         }
 
         // Generate JWT token
-        const token = jwt.sign(
-          { id: user._id, email: user.email },
-          process.env.JWT_SECRET,
-          { expiresIn: "1h" }
-        );
+        // const token = jwt.sign(
+        //   { id: user._id, email: user.email },
+        //   process.env.JWT_SECRET,
+        //   { expiresIn: "1h" }
+        // );
 
         return done(null, { user, token });
       } catch (error) {

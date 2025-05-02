@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>WebRTC Signaling Test</title>
+</head>
+<body>
+  <h2>WebRTC Test Client</h2>
+
+  <label>Room ID: <input type="text" id="roomId" value="sameer_saad" /></label><br/><br/>
+  <button onclick="joinRoom()">Join Room</button>
+  <button onclick="startCall()">Start Call</button>
+
+  <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+  <script>
+    const socket = io("http://localhost:8000"); // Backend URL
+
+    let roomId;
+    let peerConnection;
+    const config = {
+      iceServers: [{ urls: "stun:stun.l.google.com:19302" }]
+    };
+
+    // Buffer to store ICE candidates until remoteDescription is set
+    let remoteDescriptionSet = false;
+    let pendingCandidates = [];
+
+    function joinRoom() {
+      roomId = document.getElementById("roomId").value;
+      socket.emit("join-room", { roomId });
+      console.log("Joined room:", roomId);
+    }
+
+    async function startCall() {
+      peerConnection = new RTCPeerConnection(config);
+
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+      stream.getTracks().forEach(track => peerConnection.addTrack(track, stream));
+
+      peerConnection.onicecandidate = event => {
+        if (event.candidate) {
+          socket.emit("ice-candidate", { roomId, from: "user1", candidate: event.candidate });
+        }
+      };
+
+      peerConnection.ontrack = (event) => {
+        console.log("Remote stream track added", event.streams);
+      };
+
+      const offer = await peerConnection.createOffer();
+      await peerConnection.setLocalDescription(offer);
+
+      socket.emit("offer", { roomId, from: "user1", offer });
+    }
+
+    socket.on("offer", async ({ from, offer }) => {
+      console.log("Received offer from", from);
+      peerConnection = new RTCPeerConnection(config);
+
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+      stream.getTracks().forEach(track => peerConnection.addTrack(track, stream));
+
+      peerConnection.onicecandidate = event => {
+        if (event.candidate) {
+          socket.emit("ice-candidate", { roomId, from: "user2", candidate: event.candidate });
+        }
+      };
+
+      peerConnection.ontrack = (event) => {
+        console.log("Remote stream track added", event.streams);
+      };
+
+      await peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
+      remoteDescriptionSet = true;
+
+      // Add any ICE candidates that were received early
+      pendingCandidates.forEach(c => peerConnection.addIceCandidate(new RTCIceCandidate(c)));
+      pendingCandidates = [];
+
+      const answer = await peerConnection.createAnswer();
+      await peerConnection.setLocalDescription(answer);
+
+      socket.emit("answer", { roomId, from: "user2", answer });
+    });
+
+    socket.on("answer", async ({ from, answer }) => {
+      console.log("Received answer from", from);
+      await peerConnection.setRemoteDescription(new RTCSessionDescription(answer));
+      remoteDescriptionSet = true;
+
+      // Same logic could apply here for completeness, but usually not needed for answerer
+      pendingCandidates.forEach(c => peerConnection.addIceCandidate(new RTCIceCandidate(c)));
+      pendingCandidates = [];
+    });
+
+    socket.on("ice-candidate", ({ from, candidate }) => {
+      console.log("Received ICE candidate from", from);
+      if (remoteDescriptionSet) {
+        peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+      } else {
+        pendingCandidates.push(candidate);
+      }
+    });
+  </script>
+</body>
+</html>

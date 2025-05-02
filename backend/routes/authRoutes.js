@@ -25,7 +25,7 @@ router.get(
       process.env.JWT_SECRET,
       { expiresIn: "1h" }
     );
-
+    
     res.status(200).json({
       message: "Google Authentication Successful",
       token,

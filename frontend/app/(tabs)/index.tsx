@@ -64,7 +64,8 @@ export default function TabOneScreen() {
   // Get WebRTC context
   const { 
     callState, 
-    startCall
+    startCall,
+    endCall
   } = useWebRTCContext();
 
   // Load user data from storage on mount
@@ -100,12 +101,26 @@ export default function TabOneScreen() {
       return;
     }
 
+    setTimeout(() => {
+      startCall({ type: 'video', targetEmail: targetEmail.trim() });
+    }, 300);
+
     if (targetEmail.trim()) {
       startCall({ type: 'audio', targetEmail: targetEmail.trim() });
     }
 };
 
-  const handleStartVideoCall = () => {
+  const handleStartVideoCall = async () => {
+    const granted = await requestMediaPermissions();
+    if (!granted) {
+      alert('Permissions not granted');
+      return;
+    }
+
+    setTimeout(() => {
+      startCall({ type: 'video', targetEmail: targetEmail.trim() });
+    }, 300);
+
     if (targetEmail && targetEmail.trim()) {
       startCall({
         type: 'video',
@@ -227,8 +242,7 @@ export default function TabOneScreen() {
             <TouchableOpacity
               style={styles.endCallButton}
               onPress={() => {
-                // This would be your endCall function from the WebRTC context
-                const { endCall } = useWebRTCContext();
+                endCall();
                 endCall();
               }}
             >

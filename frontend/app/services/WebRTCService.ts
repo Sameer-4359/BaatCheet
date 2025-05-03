@@ -172,7 +172,9 @@ export const useWebRTC = (userId: string, userEmail: string, userName: string) =
     }
 
     // Handle ICE candidates
-    peerConnection.current.addEventListener('icecandidate', (event) => {
+    (peerConnection.current as any).addEventListener('icecandidate', (event: {
+      candidate: any; streams: any[]; 
+}) => {
       if (event.candidate && socket.current) {
         socket.current.emit('ice-candidate', {
           roomId: callState.roomId,
@@ -183,12 +185,12 @@ export const useWebRTC = (userId: string, userEmail: string, userName: string) =
     });
 
     // Handle connection state changes
-    peerConnection.current.addEventListener('connectionstatechange', () => {
+    (peerConnection.current as any).addEventListener('connectionstatechange', () => {
       console.log('Connection state:', peerConnection.current?.connectionState);
     });
 
     // Handle incoming tracks (remote stream)
-    peerConnection.current.addEventListener('track', (event) => {
+    (peerConnection.current as any).addEventListener('track', (event: { streams: any[]; }) => {
       remoteStreamRef.current = event.streams[0];
       // Notify UI that remote stream is available
       setCallState((prev) => ({ ...prev, isCallActive: true }));

@@ -3,7 +3,10 @@ const mongoose = require("mongoose")
 const connectDB= async()=>{
   
     try{
-        const conn = await mongoose.connect(process.env.MONGO_URL);//using async and await so that db can connect because db connection takes time and we dont want the execution to skip this and run the next line
+        const conn = await mongoose.connect(process.env.MONGO_URL, {
+            useNewUrlParser: true,
+            useUnifiedTopology: true
+        });//using async and await so that db can connect because db connection takes time and we dont want the execution to skip this and run the next line
         console.log("MongoDb connected")
     }
     catch (error){

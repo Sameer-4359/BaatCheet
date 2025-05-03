@@ -50,6 +50,8 @@ import CallScreen from '../../components/CallScreen';
 import ChatScreen from '../../components/ChatScreen';
 import IncomingCallModal from '../../components/IncomingCallModal';
 
+import { requestMediaPermissions } from '../../utils/permissions';
+
 export default function TabOneScreen() {
   // State for user input and authentication
   const [targetEmail, setTargetEmail] = useState('');
@@ -91,14 +93,17 @@ export default function TabOneScreen() {
     }
   };
 
-  const handleStartVoiceCall = () => {
-    if (targetEmail && targetEmail.trim()) {
-      startCall({
-        type: 'audio',
-        targetEmail: targetEmail.trim()
-      });
+  const handleStartVoiceCall = async () => {
+    const granted = await requestMediaPermissions();
+    if (!granted) {
+      alert('Mic permission is required');
+      return;
     }
-  };
+
+    if (targetEmail.trim()) {
+      startCall({ type: 'audio', targetEmail: targetEmail.trim() });
+    }
+};
 
   const handleStartVideoCall = () => {
     if (targetEmail && targetEmail.trim()) {
